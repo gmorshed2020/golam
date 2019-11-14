@@ -1,0 +1,96 @@
+# Getting the data file from a web server
+library(data.table)
+df_web = fread("http://mlr.cs.umass.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv")
+
+# Assigning dataset to a dataframe
+df = df_web
+df
+# display dimensions of the Dataset
+dim(df)
+
+# display columns names
+colnames(df)
+
+# Summary of the dataset
+summary(df)
+
+# Data Structure of the data set
+str(df)
+
+# Check the data quality for missing items
+install.packages("healthcareai") - # run only once per session
+library(healthcareai)
+missingness(df)
+
+#To take out noise variables 
+library(dplyr)
+df1 = select(df, -pH)
+missingness(df1)
+
+# Replacing all numerical variables with median
+library(imputeTS)
+df1= na_mean(df1,  option = "median") # option can be mean or mode
+
+# Checking for missingness after replacements
+missingness(df1)
+
+# Changing needed features as Categorical (only for classification)
+# df1$quality = factor(df1$quality)
+
+# Using healthcareAI total prep functions as needed
+# # prep_data(d, ..., outcome, recipe = NULL,
+#           remove_near_zero_variance = TRUE, convert_dates = TRUE,
+#           impute = TRUE, collapse_rare_factors = TRUE, PCA = FALSE,
+#           center = FALSE, scale = FALSE, make_dummies = TRUE,
+#           add_levels = TRUE, logical_to_numeric = TRUE,
+#           factor_outcome = TRUE, no_prep = FALSE)
+# 
+#   1. Convert columns with only 0/1 to factor*
+#   2. Remove columns with near-zero variance*
+#   3. Convert date columns to useful features*
+#   4. Fill in missing values via imputation*
+#   5. Collapse rare categories into "other"*
+#   6. Center numeric columns
+#   7. Standardize numeric columns
+#   8. Create dummy variables from categorical variables*
+#   9. Add protective levels to factors for rare and missing data*
+#   10. Convert columns to principle components using PCA
+df2 = prep_data(df1)
+dim(df2)
+missingness(df2)
+
+
+# Feature selection using Chi sq test
+# install.packages("mlbench") - needed only once per session
+# install.packages("FSelector") - needed only once per session
+library(mlbench)
+library(FSelector)
+# Running a Chi-squared test
+weights <- chi.squared(quality~., df1)
+#Getting the attribute importance of all variables
+print(weights)
+# Creating a subset of top 5 influencers
+subset <- cutoff.k(weights, 5)
+
+# splitting the data into 80-20 
+df1_split=split_train_test(df1,outcome=quality,0.8)
+
+# Training the machine with algorithm
+models = machine_learn(df1_split$train,outcome=quality)
+# Getting the result of best model
+evaluate(models)
+models
+# Getting the result of all models attempted
+evaluate(models, all_models = TRUE)
+
+# Predicting on the new dataset
+class(df1_split$test)
+library(data.table)
+test1 = setDF(df1_split$test)
+
+m1=predict(models,newdata=test1)
+evaluate(m1)
+
+# Getting the variable importance for predictions
+get_variable_importance(models)
+
